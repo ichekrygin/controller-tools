@@ -251,19 +251,24 @@ func GetVersion(t *types.Type, group string) string {
 
 // GetGroup returns group of t.
 func GetGroup(t *types.Type) string {
-	// try to retrieve group name from the comment annotation
-	groupName := ""
-	for _, cl := range t.CommentLines {
-		if strings.Contains(cl, "+groupName=") {
-			groupName = strings.Replace(cl, "+groupName=", "", 1)
-			groupName = strings.TrimSpace(groupName)
-		}
+	pkg := GetGroupPackage(t)
+	if IsUnderApisDir(pkg) {
+		return strings.Join(GetGroupNames(pkg), ".")
 	}
-	// fallback: use versioned package parent directory
-	if groupName == "" {
-		return filepath.Base(GetGroupPackage(t))
+	return filepath.Base(filepath.Dir(pkg))
+}
+
+// GetGroupNames returns a slice of all groups up to API/APIS
+// Example
+// - pkg/apis/foo/bar: returns []string{"foo", "bar"}
+// - pkg/apis/foo:     returns []string{"foo"}
+// - pkg/apis:         returns []string{}
+func GetGroupNames(path string) []string {
+	base := filepath.Base(path)
+	if IsApisDir(base) {
+		return []string{}
 	}
-	return groupName
+	return append([]string{base}, GetGroupNames(filepath.Dir(path))...)
 }
 
 // GetGroupPackage returns group package of t.
@@ -284,9 +289,9 @@ func GetKind(t *types.Type, group string) string {
 
 // IsUnderApisDir returns true id a directory path is or under the a Kubernetes api directory
 // Example:
-// - pkg/apis/foo/bar	- true
-// - pkg/api/foo	- true
-// - pkg/foo/bar	- false
+// - pkg/apis/foo/bar - true
+// - pkg/api/foo      - true
+// - pkg/foo/bar      - false
 func IsUnderApisDir(dir string) bool {
 	if dir == "." {
 		return false
